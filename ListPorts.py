@@ -5,6 +5,7 @@ import time
 import struct
 import random
 import struct
+import json
 
 class Roboclaw:
 	'Roboclaw Interface Class'
@@ -1084,6 +1085,7 @@ class Roboclaw:
 		return 1
 
 
+#MAIN PROGRAM==============================================================================================
 
 ports = serial.tools.list_ports.comports()
 portlist=[]
@@ -1171,3 +1173,6 @@ for port in portlist:
 	else:
 		lookup[port]="roboClaw"
 print(lookup)
+reverse_lookup = {value: key for key, value in lookup.items()}
+with open("c:\ProgramData\LabScript\Data\comports.json", 'w') as fp:
+    json.dump(reverse_lookup, fp)
