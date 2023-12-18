@@ -6,6 +6,7 @@ import struct
 import random
 import struct
 import json
+import copy
 
 class Roboclaw:
 	'Roboclaw Interface Class'
@@ -1087,6 +1088,7 @@ class Roboclaw:
 
 #MAIN PROGRAM==============================================================================================
 
+#Find all com ports
 ports = serial.tools.list_ports.comports()
 portlist=[]
 lookup={}
@@ -1096,21 +1098,56 @@ for port, desc, hwid in sorted(ports):
 	lookup[port]=""
 print(portlist)
 
+portlist1=copy.deepcopy(portlist)
+# Find RFID ports
+print("Finding RFID")
+for port in portlist:
+	baudrate=38400
+	with serial.Serial(port,baudrate, timeout=0.5) as s:
+		s.read(512)
+		s.write(b"GetFwVersion\r\n");
+		time.sleep(0.5)
+		ret=""
+		ret=s.readline().decode("utf-8", errors='ignore')
+		s.write(b"GetFwVersion\r\n");
+		time.sleep(0.5)
+		ret=""
+		ret=s.readline().decode("utf-8", errors='ignore')
+		print(port, ret)
+		if ret.startswith("RFID"):
+			rfid=port
+			portlist1.remove(port);
+			lookup[port]="RFID"
+			print("Port "+port+":"+ret+"\r\n")
+portlist=copy.deepcopy(portlist1)
+
+print("Finding Stepper")
+#Find MAS stepper motor board
 for port in portlist:
 	baudrate=115200
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
-		s.write(b"5;\r\n");
-		s.flush();
-		time.sleep(0.1)
-		ret=""
-		ret=s.readline()
-		ret=ret.decode("utf-8", errors='ignore')
+		while(True):
+			s.write(b"5;\r\n");
+			time.sleep(0.2)
+			ret=""
+			ret=s.readline()
+			ret=ret.decode("utf-8", errors='ignore')
+			print(port,ret)
+			if "callback" in ret:
+				s.write(b"4;\r\n");
+				ret=s.readline()
+				continue
+			else:
+				break
+			
 		if ret.startswith("5,MAS"):
 			stepper=port
 			portlist.remove(port);
-			lookup[port]="STEPPER"
+			lookup[port]="Stepper"
 			print("Port "+port+":"+ret+"\r\n\r")
 			break
+#Find Load Cell
+print("Finding loadcell")
 for port in portlist:
 	baudrate=115200
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
@@ -1125,31 +1162,33 @@ for port in portlist:
 			print("Port "+port+":"+ret+"\r\n")
 			break
 
-for port in portlist:
-	baudrate=38400
-	with serial.Serial(port,baudrate, timeout=0.5) as s:
-		s.write(b"GetFwVersion\r\n");
-		time.sleep(0.1)
-		ret=""
-		ret=s.readline().decode("utf-8", errors='ignore')
-		if ret.startswith("RFID"):
-			rfid=port
-			portlist.remove(port);
-			lookup[port]="RFID"
-			print("Port "+port+":"+ret+"\r\n")
+
+# Find Fluidics RS485 chain; check for access for each device
+print("Finding Fluidics")
 for port in portlist:
 	baudrate=9600
+	isFluidics=False
+	FluidicsResponded=""
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
-		s.write(b"/1&R\r\n");
-		time.sleep(0.1)
-		ret=""
-		ret=s.readline().decode("utf-8", errors='ignore')
-		if "C3000" in ret:
-			pump=port
-			portlist.remove(port);
-			lookup[port]="FLUIDICS"
-			print("Port "+port+":"+ret+"\r\n")
-			break
+		for i in range(6):
+			cmd=b"/%1d&R\r\n"%(i+1)
+			s.write(cmd)
+			time.sleep(0.1)
+			ret=""
+			ret=s.readline().decode("utf-8", errors='ignore')
+			if ("C3000" in ret) or ("VSeries" in ret) or ret.startswith("/0"):
+				isFluidics=True
+				pump=port
+				print("Port "+port+"[",i+1,"]:"+ret)
+				FluidicsResponded+="%1d"%(i+1)
+	if isFluidics:
+		portlist.remove(port);
+		lookup[port]="FLUIDICS"
+		break
+
+
+# find MAS Thermo board
+print("Finding Thermo")				
 for port in portlist:
 	baudrate=38400
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
@@ -1163,16 +1202,30 @@ for port in portlist:
 			lookup[port]="THERMO"
 			print("Port "+port+":"+ret+"\r\n")
 			break
+
+
+# Find DC Motor controller (roboClaw)
+print("Finding roboClaw")
 for port in portlist:
 	baudrate=115200
-	rc=Roboclaw(port,115200)
+	rc=Roboclaw(port,baudrate)
 	rc.Open()
 	version = rc.ReadVersion(0x80)
 	if version[0]==False:
 		continue
 	else:
 		lookup[port]="roboClaw"
+		portlist.remove(port)
+		print("Port "+port+":",version[0], version[1],"\r\n")
+		break
+
+
+
 print(lookup)
+if FluidicsResponded=="123456":
+	print("All RS485 devices responded in Fluidics chain")
+else:
+	print(">>>>>>>>>>>>>>>>>>>Not all fluidics devices responded Correctly<<<<<<<<<<<<<<<<<<<<<<<")
 reverse_lookup = {value: key for key, value in lookup.items()}
 with open("c:\ProgramData\LabScript\Data\comports.json", 'w') as fp:
     json.dump(reverse_lookup, fp)
