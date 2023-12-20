@@ -1192,7 +1192,7 @@ print("Finding Thermo")
 for port in portlist:
 	baudrate=38400
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
-		s.write(b"/4&R\r\n");
+		s.write(b"/3&R\r\n");
 		time.sleep(0.1)
 		ret=""
 		ret=s.readline().decode("utf-8", errors='ignore')
@@ -1220,8 +1220,15 @@ for port in portlist:
 		break
 
 
-
 print(lookup)
+if not "THERMO" in lookup.values():
+	print("Failure to find THERMO")
+if not "FLUIDICS" in lookup.values():
+	print("Failure to find FLUIDICS")
+if not "roboClaw" in lookup.values():
+	print("Failure to find roboClaw")
+if not "Stepper" in lookup.values():
+	print("Failure to find Stepper")
 if FluidicsResponded=="123456":
 	print("All RS485 devices responded in Fluidics chain")
 else:
@@ -1229,3 +1236,6 @@ else:
 reverse_lookup = {value: key for key, value in lookup.items()}
 with open("c:\ProgramData\LabScript\Data\comports.json", 'w') as fp:
     json.dump(reverse_lookup, fp)
+
+print("Press Enter to end:")
+input()
