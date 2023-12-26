@@ -8,6 +8,18 @@ import struct
 import json
 import copy
 
+class bcolors:	
+    NORMAL= '\033[0m'
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 class Roboclaw:
 	'Roboclaw Interface Class'
 	
@@ -17,6 +29,8 @@ class Roboclaw:
 		self.timeout = timeout;
 		self._trystimeout = retries
 		self._crc = 0;
+
+
 
 	#Command Enums
 	class Cmd():
@@ -1092,6 +1106,11 @@ class Roboclaw:
 ports = serial.tools.list_ports.comports()
 portlist=[]
 lookup={}
+expectedVersions = {}
+detectedErrors=""
+expectedVersions["roboClaw"]=	"USB Roboclaw 2x7a v4.2.8"
+expectedVersions["THERMO"] = "2.10"
+expectedVersions["Stepper"]="MAS Motor Controller V1.26-2209"
 for port, desc, hwid in sorted(ports):
 	print("{}: {} [{}]".format(port, desc, hwid))
 	portlist.append(port)
@@ -1145,6 +1164,11 @@ for port in portlist:
 			portlist.remove(port);
 			lookup[port]="Stepper"
 			print("Port "+port+":"+ret+"\r\n\r")
+			if expectedVersions["Stepper"] in ret:
+				print("Firmware Version OK")
+			else:
+				print("Firmware level mismatch; expected ",expectedVersions["Stepper"], " got ",ret)
+				detectedErrors += "Incorrect Stepper Firmware\r\n"
 			break
 #Find Load Cell
 print("Finding loadcell")
@@ -1201,6 +1225,11 @@ for port in portlist:
 			portlist.remove(port);
 			lookup[port]="THERMO"
 			print("Port "+port+":"+ret+"\r\n")
+			if expectedVersions["THERMO"] in ret:
+				print("Firmware Version OK")
+			else:
+				print("Firmware level mismatch; expected ",expectedVersions["THERMO"], " got ",ret)
+				detectedErrors += "Incorrect THERMO Firmware\r\n"
 			break
 
 
@@ -1217,10 +1246,20 @@ for port in portlist:
 		lookup[port]="roboClaw"
 		portlist.remove(port)
 		print("Port "+port+":",version[0], version[1],"\r\n")
+		if expectedVersions["roboClaw"] in version[1]:
+			print("Firmware Version OK")
+		else:
+			print("Firmware level mismatch; expected ",expectedVersions["roboClaw"], " got ",version[1])
+			detectedErrors += "Incorrect roboClaw Firmware\r\n"
+			break
 		break
 
-
 print(lookup)
+
+os.system('color')
+
+print(bcolors.FAIL)
+
 if not "THERMO" in lookup.values():
 	print("Failure to find THERMO")
 if not "FLUIDICS" in lookup.values():
@@ -1230,12 +1269,14 @@ if not "roboClaw" in lookup.values():
 if not "Stepper" in lookup.values():
 	print("Failure to find Stepper")
 if FluidicsResponded=="123456":
-	print("All RS485 devices responded in Fluidics chain")
+	print(bcolors.NORMAL,"All RS485 devices responded in Fluidics chain")
 else:
-	print(">>>>>>>>>>>>>>>>>>>Not all fluidics devices responded Correctly<<<<<<<<<<<<<<<<<<<<<<<")
+	print(bcolors.FAIL,">>>>>>>>>>>>>>>>>>>Not all fluidics devices responded Correctly<<<<<<<<<<<<<<<<<<<<<<<")
+
+print(bcolors.FAIL,detectedErrors)
 reverse_lookup = {value: key for key, value in lookup.items()}
 with open("c:\ProgramData\LabScript\Data\comports.json", 'w') as fp:
     json.dump(reverse_lookup, fp)
 
-print("Press Enter to end:")
+print(bcolors.NORMAL,"Press Enter to end:")
 input()
