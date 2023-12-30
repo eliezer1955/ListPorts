@@ -1108,7 +1108,7 @@ portlist=[]
 lookup={}
 expectedVersions = {}
 detectedErrors=""
-expectedVersions["roboClaw"]=	"USB Roboclaw 2x7a v4.2.8"
+expectedVersions["roboClaw"]=	"USB Roboclaw 2x7a v4.1.34"
 expectedVersions["THERMO"] = "2.10"
 expectedVersions["Stepper"]="MAS Motor Controller V1.26-2209"
 for port, desc, hwid in sorted(ports):
