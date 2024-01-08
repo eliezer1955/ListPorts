@@ -1,5 +1,6 @@
 import serial
 import serial.tools.list_ports
+import logging
 import os
 import time
 import struct
@@ -1101,7 +1102,7 @@ class Roboclaw:
 
 
 #MAIN PROGRAM==============================================================================================
-
+logging.basicConfig(filename='diags.log', encoding='utf-8', level=logging.ERROR)
 #Find all com ports
 ports = serial.tools.list_ports.comports()
 portlist=[]
@@ -1169,6 +1170,8 @@ for port in portlist:
 			else:
 				print("Firmware level mismatch; expected ",expectedVersions["Stepper"], " got ",ret)
 				detectedErrors += "Incorrect Stepper Firmware\r\n"
+				logging.error("Incorrect Firmware level in Stepper board")
+
 			break
 #Find Load Cell
 print("Finding loadcell")
@@ -1229,6 +1232,7 @@ for port in portlist:
 				print("Firmware Version OK")
 			else:
 				print("Firmware level mismatch; expected ",expectedVersions["THERMO"], " got ",ret)
+				logging.error("Incorrect Firmware level in THERMO board")
 				detectedErrors += "Incorrect THERMO Firmware\r\n"
 			break
 
@@ -1262,16 +1266,21 @@ print(bcolors.FAIL)
 
 if not "THERMO" in lookup.values():
 	print("Failure to find THERMO")
+	logging.error("Failure to find THERMO")
 if not "FLUIDICS" in lookup.values():
 	print("Failure to find FLUIDICS")
+	logging.error("Failure to find FLUIDICS")
 if not "roboClaw" in lookup.values():
 	print("Failure to find roboClaw")
+	logging.error("Failure to find RoboClaw")
 if not "Stepper" in lookup.values():
 	print("Failure to find Stepper")
+	logging.error("Failure to find Stepper")
 if FluidicsResponded=="123456":
 	print(bcolors.NORMAL,"All RS485 devices responded in Fluidics chain")
 else:
 	print(bcolors.FAIL,">>>>>>>>>>>>>>>>>>>Not all fluidics devices responded Correctly<<<<<<<<<<<<<<<<<<<<<<<")
+	logging.error("Failure to find Fluidics device, received "+FluidicsResponded)
 
 print(bcolors.FAIL,detectedErrors)
 reverse_lookup = {value: key for key, value in lookup.items()}
