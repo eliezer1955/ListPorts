@@ -1102,7 +1102,8 @@ class Roboclaw:
 
 
 #MAIN PROGRAM==============================================================================================
-logging.basicConfig(filename='diags.log', encoding='utf-8', level=logging.ERROR)
+logging.basicConfig(filename='diags.log', encoding='utf-8', level=logging.ERROR, format='%(asctime)s %(message)s')
+logging.info("Listports starting...")
 #Find all com ports
 ports = serial.tools.list_ports.comports()
 portlist=[]
