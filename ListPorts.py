@@ -1105,9 +1105,14 @@ class Roboclaw:
 logging.basicConfig(filename='diags.log', encoding='utf-8', level=logging.ERROR, format='%(asctime)s %(message)s')
 logging.info("Listports starting...")
 #Find all com ports
+serialNumber = input("Enter machine's Serial Number: ")
 ports = serial.tools.list_ports.comports()
 portlist=[]
 lookup={}
+lookup[serialNumber]="SerialNumber"
+logging.info("SN "+ serialNumber +" Listports starting...")
+
+
 expectedVersions = {}
 detectedErrors=""
 expectedVersions["roboClaw"]=	"USB Roboclaw 2x7a v4.1.34"
@@ -1122,6 +1127,7 @@ print(portlist)
 portlist1=copy.deepcopy(portlist)
 # Find RFID ports
 print("Finding RFID")
+RFIDcount=1
 for port in portlist:
 	baudrate=38400
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
@@ -1138,7 +1144,8 @@ for port in portlist:
 		if ret.startswith("RFID"):
 			rfid=port
 			portlist1.remove(port);
-			lookup[port]="RFID"
+			lookup[port]="RFID"+str(RFIDcount)
+			RFIDcount += 1
 			print("Port "+port+":"+ret+"\r\n")
 portlist=copy.deepcopy(portlist1)
 
@@ -1171,7 +1178,7 @@ for port in portlist:
 			else:
 				print("Firmware level mismatch; expected ",expectedVersions["Stepper"], " got ",ret)
 				detectedErrors += "Incorrect Stepper Firmware\r\n"
-				logging.error("Incorrect Firmware level in Stepper board")
+				logging.error("SN "+ serialNumber +" Incorrect Firmware level in Stepper board")
 
 			break
 #Find Load Cell
@@ -1198,7 +1205,7 @@ for port in portlist:
 	isFluidics=False
 	FluidicsResponded=""
 	with serial.Serial(port,baudrate, timeout=0.5) as s:
-		for i in range(6):
+		for i in range(5):
 			cmd=b"/%1d&R\r\n"%(i+1)
 			s.write(cmd)
 			time.sleep(0.1)
@@ -1233,7 +1240,7 @@ for port in portlist:
 				print("Firmware Version OK")
 			else:
 				print("Firmware level mismatch; expected ",expectedVersions["THERMO"], " got ",ret)
-				logging.error("Incorrect Firmware level in THERMO board")
+				logging.error("SN "+ serialNumber +" Incorrect Firmware level in THERMO board")
 				detectedErrors += "Incorrect THERMO Firmware\r\n"
 			break
 
@@ -1267,24 +1274,34 @@ print(bcolors.FAIL)
 
 if not "THERMO" in lookup.values():
 	print("Failure to find THERMO")
-	logging.error("Failure to find THERMO")
+	logging.error("SN "+ serialNumber + "Failure to find THERMO")
 if not "FLUIDICS" in lookup.values():
-	print("Failure to find FLUIDICS")
-	logging.error("Failure to find FLUIDICS")
+	print("SN "+ serialNumber +" Failure to find FLUIDICS")
+	logging.error("SN "+ serialNumber +" Failure to find FLUIDICS")
 if not "roboClaw" in lookup.values():
 	print("Failure to find roboClaw")
-	logging.error("Failure to find RoboClaw")
+	logging.error("SN "+ serialNumber +" Failure to find RoboClaw")
 if not "Stepper" in lookup.values():
 	print("Failure to find Stepper")
-	logging.error("Failure to find Stepper")
-if FluidicsResponded=="123456":
-	print(bcolors.NORMAL,"All RS485 devices responded in Fluidics chain")
+	logging.error("SN "+ serialNumber +" Failure to find Stepper")
+if FluidicsResponded.startswith("12345"):
+	print(bcolors.NORMAL,"All primary RS485 devices responded in Fluidics chain")
+	if "789" in FluidicsResponded:
+	    print(bcolors.NORMAL,"All reagent module RS485 devices responded in Fluidics chain")
 else:
 	print(bcolors.FAIL,">>>>>>>>>>>>>>>>>>>Not all fluidics devices responded Correctly<<<<<<<<<<<<<<<<<<<<<<<")
-	logging.error("Failure to find Fluidics device, received "+FluidicsResponded)
+	logging.error("SN "+ serialNumber +" Failure to find Fluidics device, received "+FluidicsResponded)
 
 print(bcolors.FAIL,detectedErrors)
+empties=[]
+for p in lookup.keys():
+	if lookup[p]=="":
+		empties.append(p)
+for p in empties:
+	del lookup[p]
+
 reverse_lookup = {value: key for key, value in lookup.items()}
+
 with open("c:\ProgramData\LabScript\Data\comports.json", 'w') as fp:
     json.dump(reverse_lookup, fp)
 
