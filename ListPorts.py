@@ -1144,16 +1144,19 @@ detectedErrors = ""
 
 expectedVersions100["roboClaw"] = "USB Roboclaw 2x7a v4.1.34"
 expectedVersions100["THERMO"] = "2.09"
+expectedVersions100["THERMOSENSOR"] = "2.09"
 expectedVersions100["Stepper"] = "MAS Motor Controller V1.25-2209"
 expectedVersions100["Power"] = "1.2"
 
 expectedVersions200["roboClaw"] = "USB Roboclaw 2x7a v4.1.34"
 expectedVersions200["THERMO"] = "2.09"
+expectedVersions200["THERMOSENSOR"] = "2.09"
 expectedVersions200["Stepper"] = "MAS Motor Controller V1.25-2209"
 expectedVersions200["Power"] = "1.2"
 
 expectedVersions200Plus["roboClaw"] = "USB Roboclaw 2x7a v4.1.34"
 expectedVersions200Plus["THERMO"] = "2.13"
+expectedVersions200Plus["THERMOSENSOR"] = "2.13"
 expectedVersions200Plus["Stepper"] = "MAS Motor Controller V1.27-2209"
 expectedVersions200Plus["Power"] = "1.2"
 expectedVersions200Plus["LeakDetector"] = "1.4"
@@ -1263,11 +1266,11 @@ for port in portlist:
     dev = []
     isFluidics = False
     FluidicsResponded = ""
-    with serial.Serial(port, baudrate, timeout=0.5) as s:
+    with serial.Serial(port, baudrate, timeout=2.0) as s:
         for i in range(9):
             cmd = b"/%1d&R\r\n" % (i+1)
             s.write(cmd)
-            time.sleep(0.1)
+            time.sleep(0.5)
             ret = ""
             ret = s.readline().decode("utf-8", errors='ignore')
             if ("C3000" in ret) or ("VSeries" in ret) or ret.startswith("/0"):
@@ -1278,14 +1281,15 @@ for port in portlist:
                 print("Port "+port+"[", i+1, "]:"+ret)
                 FluidicsResponded += "%1d" % (i+1)
             if i==5:
-                if ret not in  expectedVersions["Power"]:
+                #ret = s.readline().decode("utf-8", errors='ignore')
+                if expectedVersions["Power"] not in  ret:
                     print("Firmware level mismatch; expected ",
                         expectedVersions["Power"], " got ", ret)
                     detectedErrors += "Incorrect Power Firmware\r\n"
                     logging.error("SN " + serialNumber +
                               " Incorrect Firmware level in Power board")
             if system["Type"] == "S200Plus" and i==8:
-                if ret != expectedVersions["LeakDetector"]:
+                if expectedVersions["LeakDetector"] not in ret:
                     print("Firmware level mismatch; expected ",
                         expectedVersions["LeakDetector"], " got ", ret)
                     detectedErrors += "Incorrect Leak Detector Firmware\r\n"
@@ -1305,7 +1309,7 @@ print("Finding Thermo")
 for port in portlist:
     baudrate = 38400
     with serial.Serial(port, baudrate, timeout=0.5) as s:
-        s.write(b"/3&R\r\n")
+        s.write(b"/4&R\r\n")
         time.sleep(0.1)
         ret = ""
         ret = s.readline().decode("utf-8", errors='ignore')
@@ -1324,8 +1328,27 @@ for port in portlist:
                 logging.error("SN " + serialNumber +
                               " Incorrect Firmware level in THERMO board")
                 detectedErrors += "Incorrect THERMO Firmware\r\n"
-            break
+            
 
+# find MAS Thermo board
+            print("Finding ThermoSensor")
+            s.write(b"/3&R\r\n")
+            time.sleep(0.1)
+            ret = ""
+            ret = s.readline().decode("utf-8", errors='ignore')
+            if ret.startswith("/0`"):
+                modules.append({"Module":
+                                {"Name": "ThermoSensor", "port": port, "Devices": [{"Firmware": remove_control_characters(ret)}]}})
+                print("Port "+port+":"+ret+"\r\n")
+                if expectedVersions["THERMOSENSOR"] in ret:
+                    print("Firmware Version OK")
+                else:
+                    print("Firmware level mismatch; expected ",
+                          expectedVersions["THERMOSENSOR"], " got ", ret)
+                    logging.error("SN " + serialNumber +
+                                  " Incorrect Firmware level in THERMOSENSOR board")
+                    detectedErrors += "Incorrect THERMOSENSOR Firmware\r\n"
+                break
 
 # Find DC Motor controller (roboClaw)
 print("Finding roboClaw")
